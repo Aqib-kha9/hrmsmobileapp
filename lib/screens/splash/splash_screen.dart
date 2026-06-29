@@ -94,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // App Icon with glow
+            // App Icon with glow – company logo
             AnimatedBuilder(
               animation: _scaleAnimation,
               builder: (_, child) => Transform.scale(
@@ -103,7 +103,7 @@ class _SplashScreenState extends State<SplashScreen>
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryBg,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
@@ -113,10 +113,17 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ],
                   ),
-                  child: Icon(
-                    Icons.badge_rounded,
-                    size: 52,
-                    color: AppColors.primary.withValues(alpha: 0.9),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Image.asset(
+                      'assets/images/company_logo.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => Icon(
+                        Icons.badge_rounded,
+                        size: 52,
+                        color: AppColors.primary.withValues(alpha: 0.9),
+                      ),
+                    ),
                   ),
                 ),
               ),

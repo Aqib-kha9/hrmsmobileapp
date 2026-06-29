@@ -78,23 +78,30 @@ class _NavShellState extends State<NavShell> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Company logo placeholder
+            // Company logo
             Container(
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
-                Icons.workspaces_outline,
-                color: Colors.white,
-                size: 18,
+              child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: Image.asset(
+                  'assets/images/company_logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.workspaces_outline,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Text(
-              'NexGen',
+              'HRMS',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
                 fontSize: 17,

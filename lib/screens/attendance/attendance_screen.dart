@@ -972,8 +972,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
             ),
 
-
-
           const SizedBox(height: 16),
 
           _buildTimeRow(provider),
@@ -995,9 +993,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         : (canPunchIn ? 'PUNCH IN' : 'ALREADY IN'),
                     icon: Icons.login_rounded,
                     color: AppColors.success,
-                    enabled: canPunchIn && isInRange && !provider.isPunching && provider.isPunchInAllowed,
+                    enabled: canPunchIn &&
+                        !provider.isPunching &&
+                        provider.isPunchInAllowed,
+                    dimmed: canPunchIn && !isInRange,
                     isLoading: provider.isPunching && canPunchIn,
-                    onTap: canPunchIn ? () => _handlePunchIn(provider) : null,
+                    onTap: canPunchIn && provider.isPunchInAllowed
+                        ? () => _handlePunchIn(provider)
+                        : null,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1006,9 +1009,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     label: canPunchOut ? 'PUNCH OUT' : '—',
                     icon: Icons.logout_rounded,
                     color: AppColors.error,
-                    enabled: canPunchOut && isInRange && !provider.isPunching && provider.isPunchOutAllowed,
+                    enabled: canPunchOut &&
+                        !provider.isPunching &&
+                        provider.isPunchOutAllowed,
+                    dimmed: canPunchOut && !isInRange,
                     isLoading: provider.isPunching && canPunchOut,
-                    onTap: canPunchOut
+                    onTap: canPunchOut && provider.isPunchOutAllowed
                         ? () => _handlePunchOut(provider)
                         : null,
                   ),
@@ -1130,6 +1136,35 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _handlePunchIn(AttendanceProvider provider) async {
+    // If location is still being acquired, wait briefly and re-check.
+    if (provider.isLoadingLocation) {
+      _showSnackBar('Acquiring your location, please wait a moment...',
+          isError: true);
+      return;
+    }
+
+    // If geo-fence status is unknown (e.g. permission denied), show the
+    // location error so the employee understands what's wrong.
+    if (provider.locationError != null) {
+      _showSnackBar(provider.locationError!, isError: true);
+      return;
+    }
+
+    // If the user is outside the office perimeter, show a clear message
+    // instead of silently disabling the button.
+    if (provider.geoFenceStatus != GeoFenceStatus.withinRange) {
+      final dist = provider.currentDistance > 0
+          ? '${provider.currentDistance.round()}m'
+          : '';
+      final radius = provider.selectedOffice?.radiusMeters.round() ?? 0;
+      _showSnackBar(
+        'You are out of the office area${dist.isNotEmpty ? ' ($dist away)' : ''}. '
+        'Move within ${radius}m of the office to punch in.',
+        isError: true,
+      );
+      return;
+    }
+
     await provider.punchIn();
     if (mounted) {
       _showPunchResult(provider);
@@ -1137,6 +1172,30 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _handlePunchOut(AttendanceProvider provider) async {
+    if (provider.isLoadingLocation) {
+      _showSnackBar('Acquiring your location, please wait a moment...',
+          isError: true);
+      return;
+    }
+
+    if (provider.locationError != null) {
+      _showSnackBar(provider.locationError!, isError: true);
+      return;
+    }
+
+    if (provider.geoFenceStatus != GeoFenceStatus.withinRange) {
+      final dist = provider.currentDistance > 0
+          ? '${provider.currentDistance.round()}m'
+          : '';
+      final radius = provider.selectedOffice?.radiusMeters.round() ?? 0;
+      _showSnackBar(
+        'You are out of the office area${dist.isNotEmpty ? ' ($dist away)' : ''}. '
+        'Move within ${radius}m of the office to punch out.',
+        isError: true,
+      );
+      return;
+    }
+
     await provider.punchOut();
     if (mounted) {
       _showPunchResult(provider);
@@ -1149,6 +1208,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     required Color color,
     required bool enabled,
     required bool isLoading,
+    bool dimmed = false,
     VoidCallback? onTap,
   }) {
     return SizedBox(
@@ -1178,7 +1238,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: color,
+          backgroundColor: dimmed ? color.withValues(alpha: 0.55) : color,
           foregroundColor: Colors.white,
           disabledBackgroundColor: color.withValues(alpha: 0.35),
           disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
@@ -1186,7 +1246,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          elevation: enabled ? 2 : 0,
+          elevation: enabled && !dimmed ? 2 : 0,
         ),
       ),
     );

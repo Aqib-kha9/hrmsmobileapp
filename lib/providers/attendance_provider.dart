@@ -158,11 +158,17 @@ class AttendanceProvider extends ChangeNotifier {
   }
 
   // -- Initialization --
-  /// Fetches office data from backend, computes today's punch status and monthly data.
+  /// Fetches office data from backend, computes today's punch status and
+  /// monthly data, then auto-acquires the device GPS so the geo-fence
+  /// status is known immediately — without requiring the user to tap
+  /// "View Map" first.
   Future<void> initialize() async {
     await _fetchOfficeFromBackend();
     await _fetchTodayStatus();
     await _fetchMonthlyAttendance();
+    // Auto-acquire device location so the geo-fence status is set
+    // without requiring the user to tap "View Map" first.
+    await _acquireDeviceLocation();
   }
 
   // -- Fetch office coordinates from backend /auth/me --
@@ -787,4 +793,4 @@ class AttendanceProvider extends ChangeNotifier {
     _elapsedTimer?.cancel();
     super.dispose();
   }
-}
+}

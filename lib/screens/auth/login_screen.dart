@@ -67,19 +67,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 Center(
                   child: Column(
                     children: [
-                      // Logo
+                      // Logo – company logo
                       Container(
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppColors.primary,
-                              AppColors.primaryDark,
-                            ],
-                          ),
+                          color: AppColors.surface,
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
@@ -89,10 +82,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.badge_rounded,
-                          size: 42,
-                          color: Colors.white,
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Image.asset(
+                            'assets/images/company_logo.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                              Icons.badge_rounded,
+                              size: 42,
+                              color: AppColors.primary,
+                            ),
+                          ),
                         ),
                       ).animate().fadeIn(duration: 400.ms).scale(
                             begin: const Offset(0.8, 0.8),

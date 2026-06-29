@@ -8,11 +8,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// - Automatically attaches Bearer token to authenticated requests
 /// - Unwraps the { success, message, data } envelope from backend
 class ApiService {
-  /// Production backend URL (deployed on VPS).
-  static String get baseUrl => 'https://187.127.187.27.nip.io/api/v1';
+  /// Backend API URL.
+  /// Local backend running on the host machine (same WiFi network).
+  /// Use the host machine's LAN IP so a physical phone can reach it.
+  static String get baseUrl => 'https://api.apaarpulse.com/api/v1';
 
   String? _token;
   String? _refreshToken;
+  bool _isRefreshing = false;
 
   // ── Token Management ────────────────────────────────────────────
 
@@ -45,6 +48,51 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('refresh_token');
+  }
+
+  // ── Token Refresh ──────────────────────────────────────────────
+
+  /// Attempt to refresh the access token using the stored refresh
+  /// token.  Returns `true` on success (new tokens saved), `false`
+  /// on failure (refresh token missing / invalid / expired).
+  ///
+  /// This is called automatically when an authenticated request
+  /// receives a 401 response, so the user stays logged in for the
+  /// full 7-day lifetime of the refresh token without needing to
+  /// re-enter credentials.
+  Future<bool> _refreshAccessToken() async {
+    if (_refreshToken == null || _isRefreshing) return false;
+
+    _isRefreshing = true;
+    try {
+      final url = Uri.parse('$baseUrl/auth/refresh-token');
+      final response = await http.post(
+        url,
+        headers: _headers(auth: false),
+        body: jsonEncode({'refreshToken': _refreshToken}),
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = body.containsKey('data') ? body['data'] : body;
+        final newToken = data['token'] as String?;
+        final newRefresh = data['refreshToken'] as String?;
+
+        if (newToken != null) {
+          await saveTokens(
+            accessToken: newToken,
+            refreshToken: newRefresh ?? _refreshToken!,
+          );
+          return true;
+        }
+      }
+      // Refresh failed — refresh token is invalid or expired.
+      return false;
+    } catch (_) {
+      return false;
+    } finally {
+      _isRefreshing = false;
+    }
   }
 
   // ── HTTP Helpers ─────────────────────────────────────────────────
@@ -103,39 +151,85 @@ class ApiService {
   }
 
   /// GET with auth header.
+  ///
+  /// If the access token has expired (HTTP 401), the service
+  /// automatically attempts a single token-refresh and retries the
+  /// request so the user stays logged in for the full 7-day lifetime
+  /// of the refresh token.
   Future<dynamic> getAuth(String path) async {
     final url = Uri.parse('$baseUrl$path');
-    final response = await http.get(url, headers: _headers(auth: true));
+    var response = await http.get(url, headers: _headers(auth: true));
+
+    if (response.statusCode == 401 && _refreshToken != null) {
+      if (await _refreshAccessToken()) {
+        response = await http.get(url, headers: _headers(auth: true));
+      }
+    }
     return _unwrap(response);
   }
 
   /// POST with auth header.
+  ///
+  /// Automatically refreshes the access token on HTTP 401 and retries.
   Future<dynamic> postAuth(String path, Map<String, dynamic> body) async {
     final url = Uri.parse('$baseUrl$path');
-    final response = await http.post(
+    final encoded = jsonEncode(body);
+    var response = await http.post(
       url,
       headers: _headers(auth: true),
-      body: jsonEncode(body),
+      body: encoded,
     );
+
+    if (response.statusCode == 401 && _refreshToken != null) {
+      if (await _refreshAccessToken()) {
+        response = await http.post(
+          url,
+          headers: _headers(auth: true),
+          body: encoded,
+        );
+      }
+    }
     return _unwrap(response);
   }
 
   /// PATCH with auth header.
+  ///
+  /// Automatically refreshes the access token on HTTP 401 and retries.
   Future<dynamic> patchAuth(String path, Map<String, dynamic> body) async {
     final url = Uri.parse('$baseUrl$path');
-    final response = await http.patch(
+    final encoded = jsonEncode(body);
+    var response = await http.patch(
       url,
       headers: _headers(auth: true),
-      body: jsonEncode(body),
+      body: encoded,
     );
+
+    if (response.statusCode == 401 && _refreshToken != null) {
+      if (await _refreshAccessToken()) {
+        response = await http.patch(
+          url,
+          headers: _headers(auth: true),
+          body: encoded,
+        );
+      }
+    }
     return _unwrap(response);
   }
 
   /// Download raw bytes (e.g. PDF) with auth header.
   /// Returns the raw [Uint8List] response body.
+  ///
+  /// Automatically refreshes the access token on HTTP 401 and retries.
   Future<List<int>> downloadBytes(String path) async {
     final url = Uri.parse('$baseUrl$path');
-    final response = await http.get(url, headers: _headers(auth: true));
+    var response = await http.get(url, headers: _headers(auth: true));
+
+    if (response.statusCode == 401 && _refreshToken != null) {
+      if (await _refreshAccessToken()) {
+        response = await http.get(url, headers: _headers(auth: true));
+      }
+    }
+
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return response.bodyBytes;
     }
