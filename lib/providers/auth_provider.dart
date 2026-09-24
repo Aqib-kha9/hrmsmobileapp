@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/employee.dart';
 import '../services/api_service.dart';
 
@@ -51,6 +53,10 @@ class AuthProvider extends ChangeNotifier {
         accessToken: data['token'] as String,
         refreshToken: data['refreshToken'] as String,
       );
+      
+      // Cache employee for offline auto-login
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_employee', jsonEncode(empData));
 
       _currentEmployee = employee;
       _isAuthenticated = true;
@@ -107,21 +113,52 @@ class AuthProvider extends ChangeNotifier {
       }
 
       _currentEmployee = Employee.fromBackendJson(empData);
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_employee', jsonEncode(empData));
+      
       _isAuthenticated = true;
       _isLoading = false;
       notifyListeners();
       return true;
-    } on ApiException {
-      await _api.clearTokens();
-      _isLoading = false;
-      notifyListeners();
-      return false;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        // Token actually expired and refresh failed
+        await _api.clearTokens();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('cached_employee');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      } else {
+        // Server error (500) or other issues. Try loading cached employee.
+        return await _loadCachedEmployee();
+      }
     } catch (_) {
-      await _api.clearTokens();
-      _isLoading = false;
-      notifyListeners();
-      return false;
+      // Network error (SocketException, etc). Try loading cached employee.
+      return await _loadCachedEmployee();
     }
+  }
+
+  Future<bool> _loadCachedEmployee() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedStr = prefs.getString('cached_employee');
+      if (cachedStr != null) {
+        _currentEmployee = Employee.fromBackendJson(jsonDecode(cachedStr));
+        _isAuthenticated = true;
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Failed to load cached employee: $e');
+    }
+    // If no cache, we have to logout
+    await _api.clearTokens();
+    _isLoading = false;
+    notifyListeners();
+    return false;
   }
 
   // ── Logout ──────────────────────────────────────────────────────
@@ -139,6 +176,9 @@ class AuthProvider extends ChangeNotifier {
     }
 
     await _api.clearTokens();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('cached_employee');
+    
     _currentEmployee = null;
     _isAuthenticated = false;
     _isLoading = false;
@@ -210,7 +250,12 @@ class AuthProvider extends ChangeNotifier {
     try {
       final data = await _api.getAuth('/auth/me');
       if (data != null) {
-        _currentEmployee = Employee.fromBackendJson(data as Map<String, dynamic>);
+        final empData = data as Map<String, dynamic>;
+        _currentEmployee = Employee.fromBackendJson(empData);
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('cached_employee', jsonEncode(empData));
+        
         notifyListeners();
       }
     } catch (e) {
