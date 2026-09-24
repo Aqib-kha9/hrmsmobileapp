@@ -40,6 +40,7 @@ class AttendanceProvider extends ChangeNotifier {
 
   // -- Geo-location (DYNAMIC — populated from backend + real device GPS) --
   OfficeLocation? _selectedOffice;
+  OfficeLocation? _primaryOffice;
   // All active offices for the employee's company. The geo-fence check
   // runs against EVERY office so employees can punch in/out from any
   // company location (e.g. punch in at Indore office 1, punch out at
@@ -221,7 +222,7 @@ class AttendanceProvider extends ChangeNotifier {
         final radius = _safeDouble(officeRaw['radius_meters']) ?? 200.0;
 
         if (lat != null && lon != null) {
-          _selectedOffice = OfficeLocation(
+          _primaryOffice = OfficeLocation(
             id: officeRaw['id']?.toString() ?? 'OFFICE',
             name: officeRaw['name'] as String? ?? 'Office',
             address: officeRaw['name'] as String? ?? '',
@@ -229,11 +230,13 @@ class AttendanceProvider extends ChangeNotifier {
             longitude: lon,
             radiusMeters: radius,
           );
+          _selectedOffice = _primaryOffice;
         }
       } else if (_companyOffices.isNotEmpty) {
         // Fallback: if the employee has no primary office assigned, use the
         // first company office for initial display.
-        _selectedOffice = _companyOffices.first;
+        _primaryOffice = _companyOffices.first;
+        _selectedOffice = _primaryOffice;
       }
     } catch (e) {
       debugPrint('_fetchOfficeFromBackend error: $e');
@@ -330,8 +333,25 @@ class AttendanceProvider extends ChangeNotifier {
         ? _companyOffices
         : (_selectedOffice != null ? [_selectedOffice!] : <OfficeLocation>[]);
 
-    OfficeLocation? nearestOffice;
-    double nearestDistance = double.infinity;
+    // 1. Check primary office first
+    if (_primaryOffice != null) {
+      final dist = GeoUtils.calculateDistance(
+        _currentLat!,
+        _currentLon!,
+        _primaryOffice!.latitude,
+        _primaryOffice!.longitude,
+      );
+      if (dist <= _primaryOffice!.radiusMeters) {
+        _selectedOffice = _primaryOffice;
+        _currentDistance = dist;
+        _geoFenceStatus = GeoFenceStatus.withinRange;
+        return;
+      }
+    }
+
+    // 2. If not within primary office radius, check if within ANY other office radius
+    OfficeLocation? validOffice;
+    double minValidDistance = double.infinity;
 
     for (final office in offices) {
       final dist = GeoUtils.calculateDistance(
@@ -340,28 +360,30 @@ class AttendanceProvider extends ChangeNotifier {
         office.latitude,
         office.longitude,
       );
-      if (dist < nearestDistance) {
-        nearestDistance = dist;
-        nearestOffice = office;
+      if (dist <= office.radiusMeters && dist < minValidDistance) {
+        validOffice = office;
+        minValidDistance = dist;
       }
     }
 
-    if (nearestOffice == null) {
+    // 3. If within another office's radius, use it. Otherwise, fallback to primary office.
+    if (validOffice != null) {
+      _selectedOffice = validOffice;
+      _currentDistance = minValidDistance;
+      _geoFenceStatus = GeoFenceStatus.withinRange;
+    } else if (_primaryOffice != null) {
+      _selectedOffice = _primaryOffice;
+      _currentDistance = GeoUtils.calculateDistance(
+        _currentLat!,
+        _currentLon!,
+        _primaryOffice!.latitude,
+        _primaryOffice!.longitude,
+      );
+      _geoFenceStatus = GeoFenceStatus.outOfRange;
+    } else {
       _geoFenceStatus = GeoFenceStatus.unknown;
       _currentDistance = 0.0;
-      return;
     }
-
-    // Update the selected office to the nearest one so the map/banner
-    // reflect the office the employee is closest to.
-    _selectedOffice = nearestOffice;
-    _currentDistance = nearestDistance;
-
-    // Within range if the distance to the nearest office is within its
-    // own geo-fence radius.
-    _geoFenceStatus = _currentDistance <= nearestOffice.radiusMeters
-        ? GeoFenceStatus.withinRange
-        : GeoFenceStatus.outOfRange;
   }
 
   // -- Fetch today's status from backend --
