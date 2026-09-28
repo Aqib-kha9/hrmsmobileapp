@@ -330,8 +330,15 @@ class AttendanceProvider extends ChangeNotifier {
     // Build the list of offices to check. Prefer the full company offices
     // list; fall back to the single selected office if the list is empty.
     final offices = _companyOffices.isNotEmpty
-        ? _companyOffices
+        ? List<OfficeLocation>.from(_companyOffices)
         : (_selectedOffice != null ? [_selectedOffice!] : <OfficeLocation>[]);
+
+    // CRITICAL FIX: If admin changes employee company but leaves old office,
+    // the company_offices list won't contain the primary office!
+    // We MUST ensure the primary office is in the list for the fallback calculation.
+    if (_primaryOffice != null && !offices.any((o) => o.id == _primaryOffice!.id)) {
+      offices.add(_primaryOffice!);
+    }
 
     // 1. Check primary office first
     if (_primaryOffice != null) {
