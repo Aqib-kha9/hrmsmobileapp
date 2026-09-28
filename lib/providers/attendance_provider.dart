@@ -341,6 +341,7 @@ class AttendanceProvider extends ChangeNotifier {
         _primaryOffice!.latitude,
         _primaryOffice!.longitude,
       );
+      // If within primary office radius, always prioritize it!
       if (dist <= _primaryOffice!.radiusMeters) {
         _selectedOffice = _primaryOffice;
         _currentDistance = dist;
@@ -349,9 +350,9 @@ class AttendanceProvider extends ChangeNotifier {
       }
     }
 
-    // 2. If not within primary office radius, check if within ANY other office radius
-    OfficeLocation? validOffice;
-    double minValidDistance = double.infinity;
+    // 2. If not within primary office radius, find the absolute nearest office.
+    OfficeLocation? nearestOffice;
+    double minDistance = double.infinity;
 
     for (final office in offices) {
       final dist = GeoUtils.calculateDistance(
@@ -360,26 +361,18 @@ class AttendanceProvider extends ChangeNotifier {
         office.latitude,
         office.longitude,
       );
-      if (dist <= office.radiusMeters && dist < minValidDistance) {
-        validOffice = office;
-        minValidDistance = dist;
+      if (dist < minDistance) {
+        nearestOffice = office;
+        minDistance = dist;
       }
     }
 
-    // 3. If within another office's radius, use it. Otherwise, fallback to primary office.
-    if (validOffice != null) {
-      _selectedOffice = validOffice;
-      _currentDistance = minValidDistance;
-      _geoFenceStatus = GeoFenceStatus.withinRange;
-    } else if (_primaryOffice != null) {
-      _selectedOffice = _primaryOffice;
-      _currentDistance = GeoUtils.calculateDistance(
-        _currentLat!,
-        _currentLon!,
-        _primaryOffice!.latitude,
-        _primaryOffice!.longitude,
-      );
-      _geoFenceStatus = GeoFenceStatus.outOfRange;
+    if (nearestOffice != null) {
+      _selectedOffice = nearestOffice;
+      _currentDistance = minDistance;
+      _geoFenceStatus = minDistance <= nearestOffice.radiusMeters
+          ? GeoFenceStatus.withinRange
+          : GeoFenceStatus.outOfRange;
     } else {
       _geoFenceStatus = GeoFenceStatus.unknown;
       _currentDistance = 0.0;
