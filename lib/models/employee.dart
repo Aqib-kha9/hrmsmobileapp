@@ -40,6 +40,8 @@ class Employee {
   final bool esicApplicable;
   final String pfContributionMode; // 'none', 'employee_only', 'employer_only', 'shared'
   final String esicContributionMode; // 'none', 'shared'
+  final List<String> permissions;
+  final bool isLeaveAllowed;
 
   const Employee({
     required this.id,
@@ -76,7 +78,32 @@ class Employee {
     this.esicApplicable = true,
     this.pfContributionMode = 'shared',
     this.esicContributionMode = 'shared',
+    this.permissions = const [],
+    this.isLeaveAllowed = true,
   });
+
+  bool get isAdmin {
+    final r = role.toLowerCase();
+    return r == 'admin' || r == 'super_admin';
+  }
+
+  bool get isManager {
+    final r = role.toLowerCase();
+    return r == 'manager' || isAdmin;
+  }
+
+  bool get isHR {
+    final r = role.toLowerCase();
+    return r == 'hr' || isAdmin;
+  }
+
+  bool hasPermission(String perm) {
+    if (isAdmin) return true;
+    if (permissions.contains('*')) return true;
+    final mod = perm.split(':').first;
+    if (permissions.contains('$mod:*')) return true;
+    return permissions.contains(perm);
+  }
 
   String get initials {
     final parts = name.split(' ').where((s) => s.isNotEmpty);
@@ -118,6 +145,7 @@ class Employee {
     bool? esicApplicable,
     String? pfContributionMode,
     String? esicContributionMode,
+    bool? isLeaveAllowed,
   }) {
     return Employee(
       id: id ?? this.id,
@@ -154,6 +182,7 @@ class Employee {
       esicApplicable: esicApplicable ?? this.esicApplicable,
       pfContributionMode: pfContributionMode ?? this.pfContributionMode,
       esicContributionMode: esicContributionMode ?? this.esicContributionMode,
+      isLeaveAllowed: isLeaveAllowed ?? this.isLeaveAllowed,
     );
   }
 
@@ -192,6 +221,8 @@ class Employee {
         'esicApplicable': esicApplicable,
         'pfContributionMode': pfContributionMode,
         'esicContributionMode': esicContributionMode,
+        'isLeaveAllowed': isLeaveAllowed,
+        'is_leave_allowed': isLeaveAllowed,
       };
 
   factory Employee.fromJson(Map<String, dynamic> json) => Employee(
@@ -229,6 +260,8 @@ class Employee {
         esicApplicable: json['esicApplicable'] as bool? ?? true,
         pfContributionMode: json['pfContributionMode'] as String? ?? 'shared',
         esicContributionMode: json['esicContributionMode'] as String? ?? 'shared',
+        permissions: (json['permissions'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        isLeaveAllowed: json['isLeaveAllowed'] as bool? ?? json['is_leave_allowed'] as bool? ?? true,
       );
 
   /// Parse employee from the real backend's snake_case response
@@ -273,6 +306,8 @@ class Employee {
       esicApplicable: _parseBool(json['esic_applicable']) ?? true,
       pfContributionMode: json['pf_contribution_mode'] as String? ?? 'shared',
       esicContributionMode: json['esic_contribution_mode'] as String? ?? 'shared',
+      permissions: (json['permissions'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      isLeaveAllowed: _parseBool(json['is_leave_allowed']) ?? true,
     );
   }
 

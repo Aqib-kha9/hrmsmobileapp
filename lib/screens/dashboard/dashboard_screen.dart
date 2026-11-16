@@ -6,6 +6,7 @@ import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/attendance.dart';
 import '../../widgets/common/common_widgets.dart';
+import 'holidays_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final void Function(int tabIndex)? onNavigate;
@@ -37,8 +38,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildGreeting(employee?.name ?? 'Employee'),
             const SizedBox(height: 20),
             _buildAttendanceCard(dashboard),
-            const SizedBox(height: 24),
-            _buildLeaveSection(dashboard),
+            if (employee?.isLeaveAllowed ?? true) ...[
+              const SizedBox(height: 24),
+              _buildLeaveSection(dashboard),
+            ],
             const SizedBox(height: 24),
             _buildLoanSection(dashboard),
             const SizedBox(height: 24),
@@ -909,6 +912,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _legendItem(AppColors.textTertiary, 'W', 'Weekend'),
                   _legendItem(const Color(0xFF7C3AED), 'T', 'Tour'),
                 ],
+              ),
+              const SizedBox(height: 14),
+              InkWell(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const HolidaysScreen()),
+                  );
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.purpleBg.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.purple.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.celebration_outlined, size: 18, color: AppColors.purple),
+                          SizedBox(width: 8),
+                          Text(
+                            'View Full Company Holiday Calendar',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.purple,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.purple),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

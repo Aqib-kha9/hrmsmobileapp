@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme/app_theme.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../models/leave.dart';
 import '../../services/api_service.dart';
@@ -264,6 +265,50 @@ class _LeaveScreenState extends State<LeaveScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final employee = auth.currentEmployee;
+
+    if (employee != null && !employee.isLeaveAllowed) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.lock_person_outlined,
+                  size: 56,
+                  color: AppColors.error,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Leave Module Restricted',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Leave viewing and application has been restricted for your profile by company administration. Please contact your HR Manager if you require leave assistance.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final dashboard = context.watch<DashboardProvider>();
     final balances = dashboard.leaveBalances;
     final balance = balances.isNotEmpty ? balances.first : const LeaveBalance(available: 0, used: 0);
