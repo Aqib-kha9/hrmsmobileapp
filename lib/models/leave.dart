@@ -21,9 +21,9 @@ class LeaveBalance {
     this.consecutiveNoUsageMonths = 0,
   });
 
-  String get label => 'Earned Leave';
+  String get label => 'PL / EL & CL';
 
-  String get code => 'EL';
+  String get code => 'PL/EL';
 
   /// Total leaves ever accrued (available + used + lapsed)
   int get totalAccrued => available + used + lapsed;

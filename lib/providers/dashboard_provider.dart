@@ -148,11 +148,12 @@ class DashboardProvider extends ChangeNotifier {
     required int duration,
     required String reason,
     String? contact,
+    String leaveType = 'pl_el',
   }) async {
     final fromStr = fromDate.toIso8601String().split('T')[0];
     final toStr = toDate.toIso8601String().split('T')[0];
     final body = {
-      'leave_type': 'el',
+      'leave_type': leaveType,
       'from_date': fromStr,
       'to_date': toStr,
       'duration': duration,

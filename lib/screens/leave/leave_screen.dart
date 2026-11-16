@@ -225,7 +225,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('EL leave applied for $duration day(s)'),
+          content: Text('Leave application submitted for $duration day(s)'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -404,14 +404,14 @@ class _LeaveScreenState extends State<LeaveScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Earned Leave (EL)',
+                  'PL / EL & Casual Leaves',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${balance.available} available · ${balance.used} used',
+                  '${balance.available} available · ${balance.used} used (24d/yr standard)',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontSize: 10,
                         color: AppColors.textTertiary,
@@ -467,7 +467,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
               const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.info),
               const SizedBox(width: 8),
               Text(
-                'Accrual Rules',
+                'Leave Policy & Monthly Limit',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: AppColors.info,
@@ -476,11 +476,11 @@ class _LeaveScreenState extends State<LeaveScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          _buildAccrualRow('2 EL earned per month (onboarding grants 2 EL)'),
+          _buildAccrualRow('24 Total Annual Paid Leaves (12 PL / EL + 12 Casual Leaves)'),
           const SizedBox(height: 4),
-          _buildAccrualRow('Unused leaves carry forward up to 3 months'),
+          _buildAccrualRow('Maximum 2 paid leaves allowed per calendar month'),
           const SizedBox(height: 4),
-          _buildAccrualRow('If unused for 3 consecutive months, accrued leaves expire & reset'),
+          _buildAccrualRow('PL / EL balance can carry forward; CL lapses annually at year-end'),
         ],
       ),
     );
@@ -659,7 +659,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                             ),
                       ),
                       Text(
-                        '2 EL per month • Max 2 days',
+                        'PL / EL & CL • Max 2 paid leaves / month',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontSize: 11,
                               color: AppColors.textTertiary,
@@ -788,7 +788,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '${_calcDuration(_fromDate!, _toDate!)} day(s) EL leave from ${_formatShortDate(_fromDate!)} to ${_formatShortDate(_toDate!)}',
+                              '${_calcDuration(_fromDate!, _toDate!)} day(s) leave from ${_formatShortDate(_fromDate!)} to ${_formatShortDate(_toDate!)}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
