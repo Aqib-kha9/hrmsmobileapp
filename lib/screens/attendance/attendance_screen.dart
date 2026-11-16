@@ -105,19 +105,52 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   // PAGE HEADER
   // ═══════════════════════════════════════════════════════════════
   Widget _buildPageHeader(BuildContext context) {
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Attendance',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Attendance',
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'GPS-based punch in/out with geo-fencing',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          'GPS-based punch in/out with geo-fencing',
-          style: Theme.of(context).textTheme.bodySmall,
+        InkWell(
+          onTap: () => _showRegularizationBottomSheet(context),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.edit_calendar_rounded, size: 16, color: AppColors.primary),
+                const SizedBox(width: 6),
+                const Text(
+                  'Regularize',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -1080,6 +1113,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ),
               ],
             ),
+            if (canPunchIn || canPunchOut) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: provider.isPunching
+                    ? null
+                    : () => _showOutdoorPunchDialog(provider, isPunchIn: canPunchIn),
+                icon: const Icon(Icons.pin_drop_outlined, size: 16, color: AppColors.primary),
+                label: Text(
+                  canPunchIn
+                      ? 'Outdoor / Field Duty Punch In'
+                      : 'Outdoor / Field Duty Punch Out',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(40),
+                  side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.04),
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -1266,6 +1326,166 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     await provider.punchOut();
     if (mounted) {
       _showPunchResult(provider);
+    }
+  }
+
+  Future<void> _showOutdoorPunchDialog(AttendanceProvider provider, {required bool isPunchIn}) async {
+    final remarksController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.pin_drop_rounded, color: AppColors.primary, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isPunchIn ? 'Outdoor / Field Punch In' : 'Outdoor / Field Punch Out',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Geofence bypassed · GPS coordinates logged for audit',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Client / Site / Field Duty Remarks *',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: remarksController,
+                  maxLines: 3,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Client meeting with XYZ Corp at Dewas plant',
+                    hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.all(14),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Please enter field duty remarks or client name';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (formKey.currentState?.validate() ?? false) {
+                            Navigator.of(ctx).pop(true);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          backgroundColor: isPunchIn ? AppColors.success : AppColors.error,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: Text(
+                          isPunchIn ? 'Confirm Field Punch In' : 'Confirm Field Punch Out',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      final remarks = remarksController.text.trim();
+      if (isPunchIn) {
+        await provider.punchIn(isOutdoor: true, remarks: remarks);
+      } else {
+        await provider.punchOut(isOutdoor: true, remarks: remarks);
+      }
+      if (mounted) {
+        _showPunchResult(provider);
+      }
     }
   }
 
@@ -1618,6 +1838,39 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             .bodySmall
                             ?.copyWith(fontSize: 11),
                       ),
+                      if (record.status == AttendanceStatus.absent ||
+                          record.status == AttendanceStatus.halfDay ||
+                          record.status == AttendanceStatus.late) ...[
+                        const SizedBox(height: 4),
+                        GestureDetector(
+                          onTap: () => _showRegularizationBottomSheet(
+                            context,
+                            preselectedDate: record.date,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.edit_note, size: 13, color: AppColors.primary),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Regularize',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -1748,5 +2001,664 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String _getDayName(int weekday) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days[weekday - 1];
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ATTENDANCE REGULARISATION BOTTOM SHEET
+  // ═══════════════════════════════════════════════════════════════
+  void _showRegularizationBottomSheet(
+    BuildContext context, {
+    DateTime? preselectedDate,
+  }) {
+    final provider = context.read<AttendanceProvider>();
+    provider.fetchMyRegularizations();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        int tabIndex = 0;
+        DateTime selectedDate = preselectedDate ?? DateTime.now();
+        String selectedCategory = 'forgot_punch';
+        TimeOfDay inTime = const TimeOfDay(hour: 9, minute: 30);
+        TimeOfDay outTime = const TimeOfDay(hour: 18, minute: 30);
+        final reasonController = TextEditingController();
+        bool isSubmitting = false;
+        String? errorMessage;
+
+        final categories = [
+          {'key': 'forgot_punch', 'label': 'Missed Punch (In & Out)'},
+          {'key': 'forgot_check_in', 'label': 'Forgot Check-In'},
+          {'key': 'forgot_check_out', 'label': 'Forgot Check-Out'},
+          {'key': 'on_duty', 'label': 'On Duty / Client Duty'},
+          {'key': 'wfh', 'label': 'Remote / WFH'},
+          {'key': 'technical_issue', 'label': 'Technical / GPS Glitch'},
+          {'key': 'other', 'label': 'Other Reason'},
+        ];
+
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            final activeProvider = modalContext.watch<AttendanceProvider>();
+            final myRequests = activeProvider.myRegularizations;
+
+            return Container(
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(modalContext).viewInsets.bottom + 20,
+              ),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Drag handle
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.borderLight,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Attendance Regularisation',
+                                style: Theme.of(modalContext)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Request approval for missed punches or on-duty hours',
+                                style: Theme.of(modalContext)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(fontSize: 11),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: () => Navigator.of(modalContext).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Tabs: [New Request] [My Requests (N)]
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceSecondary,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () => setModalState(() => tabIndex = 0),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: tabIndex == 0 ? AppColors.surface : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: tabIndex == 0
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.05),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 1),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'New Request',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: tabIndex == 0 ? AppColors.textPrimary : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: InkWell(
+                                onTap: () => setModalState(() => tabIndex = 1),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: tabIndex == 1 ? AppColors.surface : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: tabIndex == 1
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.05),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 1),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'My Requests',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: tabIndex == 1 ? AppColors.textPrimary : AppColors.textSecondary,
+                                          ),
+                                        ),
+                                        if (myRequests.isNotEmpty) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary,
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              '${myRequests.length}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // TAB 0: NEW REQUEST FORM
+                      if (tabIndex == 0) ...[
+                        // Date selector
+                        Text(
+                          'Attendance Date',
+                          style: Theme.of(modalContext)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 6),
+                        InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: modalContext,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(2025, 1, 1),
+                              lastDate: DateTime.now(),
+                            );
+                            if (picked != null) {
+                              setModalState(() {
+                                selectedDate = picked;
+                                errorMessage = null;
+                              });
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceSecondary,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.borderLight),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
+                                const SizedBox(width: 10),
+                                Text(
+                                  '${selectedDate.day} ${_getMonthName(selectedDate.month)} ${selectedDate.year} (${_getDayName(selectedDate.weekday)})',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const Spacer(),
+                                const Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: AppColors.textSecondary),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Category Dropdown
+                        Text(
+                          'Reason Category',
+                          style: Theme.of(modalContext)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceSecondary,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.borderLight),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedCategory,
+                              isExpanded: true,
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+                              items: categories.map((c) {
+                                return DropdownMenuItem<String>(
+                                  value: c['key'],
+                                  child: Text(
+                                    c['label']!,
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() => selectedCategory = val);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Timings Row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Proposed In Time',
+                                    style: Theme.of(modalContext)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  InkWell(
+                                    onTap: () async {
+                                      final picked = await showTimePicker(
+                                        context: modalContext,
+                                        initialTime: inTime,
+                                      );
+                                      if (picked != null) {
+                                        setModalState(() => inTime = picked);
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceSecondary,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: AppColors.borderLight),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.access_time_rounded, size: 16, color: AppColors.success),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            inTime.format(modalContext),
+                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Proposed Out Time',
+                                    style: Theme.of(modalContext)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  InkWell(
+                                    onTap: () async {
+                                      final picked = await showTimePicker(
+                                        context: modalContext,
+                                        initialTime: outTime,
+                                      );
+                                      if (picked != null) {
+                                        setModalState(() => outTime = picked);
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceSecondary,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: AppColors.borderLight),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.access_time_rounded, size: 16, color: AppColors.error),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            outTime.format(modalContext),
+                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Justification Reason
+                        Text(
+                          'Detailed Reason *',
+                          style: Theme.of(modalContext)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: reasonController,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            hintText: 'Explain why attendance was missed or duty details...',
+                            hintStyle: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                            filled: true,
+                            fillColor: AppColors.surfaceSecondary,
+                            contentPadding: const EdgeInsets.all(12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.borderLight),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.borderLight),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.primary),
+                            ),
+                          ),
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Error Banner if any
+                        if (errorMessage != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, size: 16, color: AppColors.error),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    errorMessage!,
+                                    style: const TextStyle(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Submit Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    final reason = reasonController.text.trim();
+                                    if (reason.length < 3) {
+                                      setModalState(() {
+                                        errorMessage = 'Please provide a justification reason (at least 3 characters)';
+                                      });
+                                      return;
+                                    }
+
+                                    setModalState(() {
+                                      isSubmitting = true;
+                                      errorMessage = null;
+                                    });
+
+                                    try {
+                                      final inStr = '${inTime.hour.toString().padLeft(2, '0')}:${inTime.minute.toString().padLeft(2, '0')}:00';
+                                      final outStr = '${outTime.hour.toString().padLeft(2, '0')}:${outTime.minute.toString().padLeft(2, '0')}:00';
+
+                                      await activeProvider.applyRegularization(
+                                        date: selectedDate,
+                                        regularizationType: selectedCategory,
+                                        requestedCheckIn: inStr,
+                                        requestedCheckOut: outStr,
+                                        reason: reason,
+                                      );
+
+                                      if (modalContext.mounted) {
+                                        Navigator.of(modalContext).pop();
+                                        _showSnackBar('Regularisation request submitted successfully! Awaiting HR review.');
+                                      }
+                                    } catch (err) {
+                                      setModalState(() {
+                                        isSubmitting = false;
+                                        errorMessage = err.toString().replaceAll('Exception:', '').trim();
+                                      });
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              elevation: 0,
+                            ),
+                            child: isSubmitting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Text(
+                                    'Submit Regularisation Request',
+                                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                                  ),
+                          ),
+                        ),
+                      ],
+
+                      // TAB 1: MY REGULARIZATION REQUESTS
+                      if (tabIndex == 1) ...[
+                        if (activeProvider.isLoadingRegularizations)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 30),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                        else if (myRequests.isEmpty)
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 30),
+                              child: Column(
+                                children: [
+                                  Icon(Icons.assignment_outlined, size: 40, color: AppColors.textTertiary),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'No regularisation requests yet',
+                                    style: Theme.of(modalContext).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: myRequests.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final req = myRequests[index];
+                              final statusColor = req.isApproved
+                                  ? AppColors.success
+                                  : req.isRejected
+                                      ? AppColors.error
+                                      : AppColors.warning;
+
+                              return Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceSecondary,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppColors.borderLight),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          '${req.date.day} ${_getMonthName(req.date.month)} ${req.date.year}',
+                                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            req.statusLabel,
+                                            style: TextStyle(
+                                              color: statusColor,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      req.categoryLabel,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Timing: ${req.requestedCheckIn ?? '09:30'} — ${req.requestedCheckOut ?? '18:30'}',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Reason: "${req.reason}"',
+                                      style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.textSecondary),
+                                    ),
+                                    if (req.adminRemarks != null && req.adminRemarks!.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'HR Note: ${req.adminRemarks}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: req.isApproved ? AppColors.success : AppColors.error,
+                                        ),
+                                      ),
+                                    ],
+                                    if (req.isPending) ...[
+                                      const SizedBox(height: 8),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton(
+                                          onPressed: () async {
+                                            try {
+                                              await activeProvider.cancelRegularization(req.id);
+                                              _showSnackBar('Regularisation request cancelled');
+                                            } catch (e) {
+                                              _showSnackBar('Failed to cancel request', isError: true);
+                                            }
+                                          },
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: AppColors.error,
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                          child: const Text('Cancel Request', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }

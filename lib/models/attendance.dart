@@ -337,3 +337,102 @@ class MonthlyAttendance {
     return fallback;
   }
 }
+
+/// Model representing an employee's attendance regularisation request
+class AttendanceRegularization {
+  final int id;
+  final DateTime date;
+  final String regularizationType;
+  final String? requestedCheckIn;
+  final String? requestedCheckOut;
+  final String reason;
+  final String status;
+  final String? adminRemarks;
+  final String? approverName;
+  final DateTime? createdAt;
+
+  const AttendanceRegularization({
+    required this.id,
+    required this.date,
+    required this.regularizationType,
+    this.requestedCheckIn,
+    this.requestedCheckOut,
+    required this.reason,
+    required this.status,
+    this.adminRemarks,
+    this.approverName,
+    this.createdAt,
+  });
+
+  bool get isPending => status.toLowerCase() == 'pending';
+  bool get isApproved => status.toLowerCase() == 'approved';
+  bool get isRejected => status.toLowerCase() == 'rejected';
+  bool get isCancelled => status.toLowerCase() == 'cancelled';
+
+  String get categoryLabel {
+    switch (regularizationType) {
+      case 'forgot_punch':
+        return 'Missed Punch (In & Out)';
+      case 'forgot_check_in':
+        return 'Forgot Check-In';
+      case 'forgot_check_out':
+        return 'Forgot Check-Out';
+      case 'on_duty':
+        return 'On Duty / Client Duty';
+      case 'wfh':
+        return 'Remote / WFH';
+      case 'technical_issue':
+        return 'Technical / GPS Issue';
+      default:
+        return 'Other Reason';
+    }
+  }
+
+  String get statusLabel {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return 'Pending Review';
+    }
+  }
+
+  factory AttendanceRegularization.fromJson(Map<String, dynamic> json) {
+    DateTime parsedDate;
+    try {
+      parsedDate = DateTime.parse(json['date'].toString());
+    } catch (_) {
+      parsedDate = DateTime.now();
+    }
+
+    DateTime? created;
+    if (json['created_at'] != null) {
+      try {
+        created = DateTime.parse(json['created_at'].toString());
+      } catch (_) {}
+    }
+
+    final approverObj = json['approver'];
+    String? appName;
+    if (approverObj is Map<String, dynamic>) {
+      appName = approverObj['name'] as String?;
+    }
+
+    return AttendanceRegularization(
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      date: parsedDate,
+      regularizationType: json['regularization_type'] as String? ?? 'forgot_punch',
+      requestedCheckIn: json['requested_check_in'] as String?,
+      requestedCheckOut: json['requested_check_out'] as String?,
+      reason: json['reason'] as String? ?? '',
+      status: json['status'] as String? ?? 'pending',
+      adminRemarks: json['admin_remarks'] as String?,
+      approverName: appName,
+      createdAt: created,
+    );
+  }
+}

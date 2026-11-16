@@ -58,6 +58,11 @@ class AttendanceProvider extends ChangeNotifier {
   bool _isLoadingMonthly = false;
   String? _monthlyError;
 
+  // -- Regularisation data --
+  List<AttendanceRegularization> _myRegularizations = [];
+  bool _isLoadingRegularizations = false;
+  String? _regularizationError;
+
   // -- Loading --
   bool _isPunching = false;
   String? _punchResultMessage;
@@ -114,6 +119,9 @@ class AttendanceProvider extends ChangeNotifier {
   bool get isPunchOutAllowed => _isPunchOutAllowed;
   String? get disabledReason => _disabledReason;
   bool get isDisabledDay => _disabledReason != null && _disabledReason!.isNotEmpty;
+  List<AttendanceRegularization> get myRegularizations => List.unmodifiable(_myRegularizations);
+  bool get isLoadingRegularizations => _isLoadingRegularizations;
+  String? get regularizationError => _regularizationError;
 
   String get formattedCheckIn => _checkInTime != null
       ? '${_checkInTime!.hour.toString().padLeft(2, '0')}:${_checkInTime!.minute.toString().padLeft(2, '0')}'
@@ -174,6 +182,7 @@ class AttendanceProvider extends ChangeNotifier {
     await _fetchOfficeFromBackend();
     await _fetchTodayStatus();
     await _fetchMonthlyAttendance();
+    await fetchMyRegularizations();
     // Auto-acquire device location so the geo-fence status is set
     // without requiring the user to tap "View Map" first.
     await _acquireDeviceLocation();
@@ -634,7 +643,8 @@ class AttendanceProvider extends ChangeNotifier {
   // -- Punch In --
   /// Sends the real device GPS coordinates to the backend so server-side
   /// geo-fence validation works correctly against the employee's office.
-  Future<void> punchIn({String? photoPath}) async {
+  /// When [isOutdoor] is true, geofence restriction is bypassed on server.
+  Future<void> punchIn({String? photoPath, bool isOutdoor = false, String? remarks}) async {
     if (_isCheckedIn && !_isCheckedOut) {
       _punchResultMessage = 'Already checked in today!';
       _isPunchError = true;
@@ -649,7 +659,7 @@ class AttendanceProvider extends ChangeNotifier {
 
     // Acquire device location on demand right before punching
     await _acquireDeviceLocation();
-    if (_locationError != null) {
+    if (_locationError != null && !isOutdoor) {
       _punchResultMessage = _locationError;
       _isPunchError = true;
       _isPunching = false;
@@ -661,10 +671,16 @@ class AttendanceProvider extends ChangeNotifier {
       final lat = _currentLat;
       final lon = _currentLon;
 
-      final result = await _api.postAuth('/attendance/punch-in', {
+      final payload = <String, dynamic>{
         'latitude': lat,
         'longitude': lon,
-      });
+        'is_outdoor': isOutdoor,
+      };
+      if (remarks != null && remarks.trim().isNotEmpty) {
+        payload['remarks'] = remarks.trim();
+      }
+
+      final result = await _api.postAuth('/attendance/punch-in', payload);
 
       if (result != null) {
         final checkInRaw = result['check_in_time'];
@@ -688,9 +704,13 @@ class AttendanceProvider extends ChangeNotifier {
         if (photoPath != null) _photoPathIn = photoPath;
 
         final cin = formattedCheckIn;
-        _punchResultMessage = _isLateToday
-            ? 'Punched in at $cin (Late by $lateMins min)'
-            : 'Punched in successfully at $cin';
+        if (isOutdoor) {
+          _punchResultMessage = 'Field Duty punch-in at $cin';
+        } else {
+          _punchResultMessage = _isLateToday
+              ? 'Punched in at $cin (Late by $lateMins min)'
+              : 'Punched in successfully at $cin';
+        }
         _isPunchError = false;
 
         _todayPunches.add(PunchRecord(
@@ -700,10 +720,12 @@ class AttendanceProvider extends ChangeNotifier {
           longitude: lon ?? 0,
           locationName: _checkInLocation,
           distanceFromOffice: _currentDistance,
-          geoFenceStatus: _geoFenceStatus,
+          geoFenceStatus: isOutdoor ? GeoFenceStatus.withinRange : _geoFenceStatus,
           isLate: _isLateToday,
           lateByMinutes: _isLateToday ? _lateByMinutes : null,
           photoPath: _photoPathIn,
+          isOutdoor: isOutdoor,
+          remarks: remarks,
         ));
 
         // Start live elapsed timer
@@ -724,7 +746,8 @@ class AttendanceProvider extends ChangeNotifier {
   // -- Punch Out --
   /// Sends the real device GPS coordinates to the backend so server-side
   /// geo-fence validation works correctly against the employee's office.
-  Future<void> punchOut({String? photoPath}) async {
+  /// When [isOutdoor] is true, geofence restriction is bypassed on server.
+  Future<void> punchOut({String? photoPath, bool isOutdoor = false, String? remarks}) async {
     if (!_isCheckedIn) {
       _punchResultMessage = 'You must punch in first!';
       _isPunchError = true;
@@ -746,7 +769,7 @@ class AttendanceProvider extends ChangeNotifier {
 
     // Acquire device location on demand right before punching
     await _acquireDeviceLocation();
-    if (_locationError != null) {
+    if (_locationError != null && !isOutdoor) {
       _punchResultMessage = _locationError;
       _isPunchError = true;
       _isPunching = false;
@@ -758,10 +781,16 @@ class AttendanceProvider extends ChangeNotifier {
       final lat = _currentLat;
       final lon = _currentLon;
 
-      final result = await _api.postAuth('/attendance/punch-out', {
+      final payload = <String, dynamic>{
         'latitude': lat,
         'longitude': lon,
-      });
+        'is_outdoor': isOutdoor,
+      };
+      if (remarks != null && remarks.trim().isNotEmpty) {
+        payload['remarks'] = remarks.trim();
+      }
+
+      final result = await _api.postAuth('/attendance/punch-out', payload);
 
       if (result != null) {
         final checkOutRaw = result['check_out_time'];
@@ -780,8 +809,9 @@ class AttendanceProvider extends ChangeNotifier {
 
         final cout = formattedCheckOut;
         final th = formattedTotalHours;
-        _punchResultMessage =
-            'Punched out successfully at $cout. Total: $th';
+        _punchResultMessage = isOutdoor
+            ? 'Field Duty punch-out at $cout. Total: $th'
+            : 'Punched out successfully at $cout. Total: $th';
         _isPunchError = false;
 
         _todayPunches.add(PunchRecord(
@@ -791,8 +821,10 @@ class AttendanceProvider extends ChangeNotifier {
           longitude: lon ?? 0,
           locationName: _checkInLocation,
           distanceFromOffice: _currentDistance,
-          geoFenceStatus: _geoFenceStatus,
+          geoFenceStatus: isOutdoor ? GeoFenceStatus.withinRange : _geoFenceStatus,
           photoPath: _photoPathOut,
+          isOutdoor: isOutdoor,
+          remarks: remarks,
         ));
 
         // Stop live elapsed timer
@@ -897,7 +929,82 @@ class AttendanceProvider extends ChangeNotifier {
     _googleMapsApiKey = null;
     _mapsError = null;
     _showMap = false;
+    _myRegularizations = [];
+    _isLoadingRegularizations = false;
+    _regularizationError = null;
     notifyListeners();
+  }
+
+  // ── Attendance Regularisation Methods ──
+
+  /// Fetch the employee's regularisation requests
+  Future<void> fetchMyRegularizations() async {
+    _isLoadingRegularizations = true;
+    _regularizationError = null;
+    notifyListeners();
+
+    try {
+      final res = await _api.getAuth('/attendance/regularize/my-requests');
+      if (res is List) {
+        _myRegularizations = res
+            .map((item) => AttendanceRegularization.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } else if (res is Map && res['data'] is List) {
+        _myRegularizations = (res['data'] as List)
+            .map((item) => AttendanceRegularization.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      _isLoadingRegularizations = false;
+      notifyListeners();
+    } catch (e) {
+      _regularizationError = e.toString();
+      _isLoadingRegularizations = false;
+      notifyListeners();
+    }
+  }
+
+  /// Submit a regularisation request
+  Future<bool> applyRegularization({
+    required DateTime date,
+    required String regularizationType,
+    String? requestedCheckIn,
+    String? requestedCheckOut,
+    required String reason,
+  }) async {
+    try {
+      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      await _api.postAuth('/attendance/regularize', {
+        'date': dateStr,
+        'regularization_type': regularizationType,
+        if (requestedCheckIn != null && requestedCheckIn.isNotEmpty)
+          'requested_check_in': requestedCheckIn.length == 5 ? '$requestedCheckIn:00' : requestedCheckIn,
+        if (requestedCheckOut != null && requestedCheckOut.isNotEmpty)
+          'requested_check_out': requestedCheckOut.length == 5 ? '$requestedCheckOut:00' : requestedCheckOut,
+        'reason': reason,
+      });
+
+      // Refresh list & monthly
+      await fetchMyRegularizations();
+      await _fetchMonthlyAttendance();
+      return true;
+    } catch (e) {
+      _regularizationError = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Cancel a pending regularisation request
+  Future<bool> cancelRegularization(int id) async {
+    try {
+      await _api.patchAuth('/attendance/regularize/$id/cancel', {});
+      await fetchMyRegularizations();
+      return true;
+    } catch (e) {
+      _regularizationError = e.toString();
+      notifyListeners();
+      rethrow;
+    }
   }
 
   @override
