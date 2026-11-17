@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/attendance_provider.dart';
+import '../../providers/dashboard_provider.dart';
 import '../../widgets/common/employee_avatar.dart';
 import '../../widgets/common/common_widgets.dart';
 import '../../models/document.dart';
 import '../../models/letter.dart';
-import '../../data/mock/mock_documents.dart';
 import '../auth/login_screen.dart';
 import '../documents/documents_screen.dart';
 import '../letters/letters_screen.dart';
-import '../../providers/dashboard_provider.dart';
-import '../../providers/attendance_provider.dart';
+import '../dashboard/holidays_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -68,6 +68,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   '${employee.department} • ${employee.branch}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: employee.isAdmin
+                        ? AppColors.primary.withValues(alpha: 0.12)
+                        : (employee.isManager
+                            ? Colors.amber.withValues(alpha: 0.15)
+                            : Colors.grey.withValues(alpha: 0.12)),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: employee.isAdmin
+                          ? AppColors.primary.withValues(alpha: 0.3)
+                          : (employee.isManager ? Colors.amber : Colors.grey.shade300),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.verified_user_rounded,
+                        size: 13,
+                        color: employee.isAdmin
+                            ? AppColors.primary
+                            : (employee.isManager ? Colors.amber.shade800 : Colors.grey.shade700),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        employee.role.toUpperCase().replaceAll('_', ' '),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                          color: employee.isAdmin
+                              ? AppColors.primary
+                              : (employee.isManager ? Colors.amber.shade900 : Colors.grey.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -111,8 +152,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
           // -- SOW 3.1 & 3.7: Quick-access tiles for Documents & Letters --
-          _buildQuickAccessCard(context, docs, letters),
-          const SizedBox(height: 16),
+          if (employee.isDocumentsAllowedEffective || employee.isLettersAllowedEffective) ...[
+            _buildQuickAccessCard(context, employee, docs, letters),
+            const SizedBox(height: 16),
+          ],
 
           // Actions
           Container(
@@ -124,6 +167,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: Column(
               children: [
+                _buildActionTile(Icons.celebration_outlined, 'Holiday Calendar', () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const HolidaysScreen()),
+                  );
+                }),
+                const Divider(height: 1),
                 _buildActionTile(Icons.settings, 'Settings', () {}),
                 const Divider(height: 1),
                 _buildActionTile(Icons.help_outline, 'Help & Support', () {}),
@@ -173,38 +222,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSalaryRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: 11,
-                  color: AppColors.textTertiary,
-                ),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryDark,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // -- SOW 3.1 & 3.7: Documents & Letters quick-access card --
   Widget _buildQuickAccessCard(
     BuildContext context,
+    Employee employee,
     List<EmployeeDocument> docs,
     List<EmployeeLetter> letters,
   ) {
+    final showDocs = employee.isDocumentsAllowedEffective;
+    final showLetters = employee.isLettersAllowedEffective;
+
+    if (!showDocs && !showLetters) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -216,35 +247,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader(title: 'Documents & Letters'),
+          SectionHeader(
+            title: showDocs && showLetters
+                ? 'Documents & Letters'
+                : (showDocs ? 'My Documents' : 'Official Letters'),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildQuickTile(
-                  context,
-                  icon: Icons.folder_outlined,
-                  title: 'My Documents',
-                  subtitle: '${docs.length} documents',
-                  badge: _pendingDocCount(docs),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const DocumentsScreen()),
+              if (showDocs)
+                Expanded(
+                  child: _buildQuickTile(
+                    context,
+                    icon: Icons.folder_outlined,
+                    title: 'My Documents',
+                    subtitle: '${docs.length} documents',
+                    badge: _pendingDocCount(docs),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const DocumentsScreen()),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildQuickTile(
-                  context,
-                  icon: Icons.mail_outline,
-                  title: 'Letters',
-                  subtitle: '${letters.length} letters',
-                  badge: letters.length,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const LettersScreen()),
+              if (showDocs && showLetters) const SizedBox(width: 12),
+              if (showLetters)
+                Expanded(
+                  child: _buildQuickTile(
+                    context,
+                    icon: Icons.mail_outline,
+                    title: 'Letters',
+                    subtitle: '${letters.length} letters',
+                    badge: letters.length,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const LettersScreen()),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ],
@@ -358,18 +395,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _formatDateOrNA(DateTime? d) {
     if (d == null) return '—';
     return _formatDate(d);
-  }
-
-  String _formatCurrency(double value) {
-    final parts = value.toStringAsFixed(0).split('.');
-    final chars = parts[0].split('').reversed.toList();
-    final formatted = <String>[];
-    for (var i = 0; i < chars.length; i++) {
-      if (i > 0 && i % 2 == 0 && i != chars.length - 1) {
-        formatted.add(',');
-      }
-      formatted.add(chars[i]);
-    }
-    return formatted.reversed.join();
   }
 }

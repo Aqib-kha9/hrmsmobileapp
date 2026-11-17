@@ -54,6 +54,8 @@ class PunchRecord {
   final bool isLate;
   final int? lateByMinutes;
   final String? photoPath;
+  final bool isOutdoor;
+  final String? remarks;
 
   const PunchRecord({
     required this.type,
@@ -66,6 +68,8 @@ class PunchRecord {
     this.isLate = false,
     this.lateByMinutes,
     this.photoPath,
+    this.isOutdoor = false,
+    this.remarks,
   });
 
   String get formattedTime {

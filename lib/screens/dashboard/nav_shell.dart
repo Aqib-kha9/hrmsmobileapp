@@ -42,22 +42,21 @@ class _NavShellState extends State<NavShell> {
     });
   }
 
-  List<AppNavTab> _getAvailableTabs(bool showLeave) {
-    if (showLeave) {
-      return const [
-        AppNavTab.home,
-        AppNavTab.attendance,
-        AppNavTab.leave,
-        AppNavTab.payroll,
-        AppNavTab.loans,
-      ];
+  List<AppNavTab> _getAvailableTabs(Employee? emp) {
+    final tabs = <AppNavTab>[AppNavTab.home];
+    if (emp?.isAttendanceAllowedEffective ?? true) {
+      tabs.add(AppNavTab.attendance);
     }
-    return const [
-      AppNavTab.home,
-      AppNavTab.attendance,
-      AppNavTab.payroll,
-      AppNavTab.loans,
-    ];
+    if (emp?.isLeaveAllowedEffective ?? true) {
+      tabs.add(AppNavTab.leave);
+    }
+    if (emp?.isPayrollAllowedEffective ?? true) {
+      tabs.add(AppNavTab.payroll);
+    }
+    if (emp?.isLoansAllowedEffective ?? true) {
+      tabs.add(AppNavTab.loans);
+    }
+    return tabs;
   }
 
   void _navigateToLogicalTab(int logicalIndex, List<AppNavTab> availableTabs) {
@@ -146,15 +145,14 @@ class _NavShellState extends State<NavShell> {
     final theme = Theme.of(context);
     final auth = context.watch<AuthProvider>();
     final employee = auth.currentEmployee;
-    final bool showLeave = employee?.isLeaveAllowed ?? true;
-    final availableTabs = _getAvailableTabs(showLeave);
+    final availableTabs = _getAvailableTabs(employee);
 
     // Safeguard current index bounds when tabs change dynamically
     if (_currentIndex >= availableTabs.length) {
       _currentIndex = 0;
     }
 
-    final activeTab = availableTabs[_currentIndex];
+    final activeTab = availableTabs.isNotEmpty ? availableTabs[_currentIndex] : AppNavTab.home;
 
     return Scaffold(
       appBar: AppBar(
@@ -211,19 +209,21 @@ class _NavShellState extends State<NavShell> {
         ],
       ),
       body: _buildScreenForTab(activeTab, availableTabs),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: AppColors.surface,
-        elevation: 8,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-          if (availableTabs[index] == AppNavTab.home) {
-            context.read<DashboardProvider>().loadDashboard();
-          }
-        },
-        items: availableTabs.map(_buildBarItem).toList(),
-      ),
+      bottomNavigationBar: availableTabs.length >= 2
+          ? BottomNavigationBar(
+              backgroundColor: AppColors.surface,
+              elevation: 8,
+              type: BottomNavigationBarType.fixed,
+              currentIndex: _currentIndex,
+              onTap: (index) {
+                setState(() => _currentIndex = index);
+                if (availableTabs[index] == AppNavTab.home) {
+                  context.read<DashboardProvider>().loadDashboard();
+                }
+              },
+              items: availableTabs.map(_buildBarItem).toList(),
+            )
+          : null,
     );
   }
 

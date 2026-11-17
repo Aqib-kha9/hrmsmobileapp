@@ -36,16 +36,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildGreeting(employee?.name ?? 'Employee'),
-            const SizedBox(height: 20),
-            _buildAttendanceCard(dashboard),
-            if (employee?.isLeaveAllowed ?? true) ...[
+            if (employee?.isAttendanceAllowedEffective ?? true) ...[
+              const SizedBox(height: 20),
+              _buildAttendanceCard(dashboard),
+            ],
+            if (employee?.isLeaveAllowedEffective ?? true) ...[
               const SizedBox(height: 24),
               _buildLeaveSection(dashboard),
             ],
-            const SizedBox(height: 24),
-            _buildLoanSection(dashboard),
-            const SizedBox(height: 24),
-            _buildMonthCalendar(dashboard),
+            if (employee?.isLoansAllowedEffective ?? true) ...[
+              const SizedBox(height: 24),
+              _buildLoanSection(dashboard),
+            ],
+            if (employee?.isAttendanceAllowedEffective ?? true) ...[
+              const SizedBox(height: 24),
+              _buildMonthCalendar(dashboard),
+            ],
+            if (!(employee?.isAttendanceAllowedEffective ?? true) &&
+                !(employee?.isLeaveAllowedEffective ?? true) &&
+                !(employee?.isLoansAllowedEffective ?? true)) ...[
+              const SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.borderLight),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.info_outline, color: AppColors.primary, size: 36),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Welcome to HRMS',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'You are signed in as ${employee?.name ?? "Employee"}. Modules and features enabled by administration will appear here.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

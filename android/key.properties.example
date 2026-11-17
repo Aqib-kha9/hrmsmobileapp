@@ -1,0 +1,12 @@
+# Google Play Store Release Keystore Configuration
+# Copy this file to key.properties (in the same directory) and fill in your actual credentials.
+#
+# To generate a release keystore, run:
+# keytool -genkey -v -keystore release.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000
+#
+# DO NOT commit key.properties or *.keystore to source control!
+
+storePassword=YourStorePasswordHere
+keyPassword=YourKeyPasswordHere
+keyAlias=upload
+storeFile=../app/release.keystore

@@ -19,6 +19,13 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _isAuthenticated;
   String? get error => _error;
 
+  // RBAC Access Control Helpers
+  List<String> get permissions => _currentEmployee?.permissions ?? const [];
+  bool get isAdmin => _currentEmployee?.isAdmin ?? false;
+  bool get isManager => _currentEmployee?.isManager ?? false;
+  bool get isHR => _currentEmployee?.isHR ?? false;
+  bool hasPermission(String perm) => _currentEmployee?.hasPermission(perm) ?? false;
+
   // ── Login ───────────────────────────────────────────────────────
 
   /// Authenticate against the real backend.
@@ -34,16 +41,11 @@ class AuthProvider extends ChangeNotifier {
         'password': password,
       });
 
-      final empData = (data as Map<String, dynamic>)['employee']
-          as Map<String, dynamic>;
-      final role = empData['role'] as String?;
-
-      // Mobile app is for employees only — block admin / hr
-      if (role != null && role != 'employee') {
-        _error = 'This app is for employees only. Please use the web portal.';
-        _isLoading = false;
-        notifyListeners();
-        return false;
+      final dataMap = data as Map<String, dynamic>;
+      final empData = dataMap['employee'] as Map<String, dynamic>;
+      // Merge top-level permissions array if present
+      if (dataMap['permissions'] != null && empData['permissions'] == null) {
+        empData['permissions'] = dataMap['permissions'];
       }
 
       final employee = Employee.fromBackendJson(empData);
@@ -103,14 +105,6 @@ class AuthProvider extends ChangeNotifier {
       }
 
       final empData = data as Map<String, dynamic>;
-      final role = empData['role'] as String?;
-
-      if (role != null && role != 'employee') {
-        await _api.clearTokens();
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
 
       _currentEmployee = Employee.fromBackendJson(empData);
       

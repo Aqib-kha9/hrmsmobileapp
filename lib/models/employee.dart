@@ -41,7 +41,13 @@ class Employee {
   final String pfContributionMode; // 'none', 'employee_only', 'employer_only', 'shared'
   final String esicContributionMode; // 'none', 'shared'
   final List<String> permissions;
+  final bool isAttendanceAllowed;
   final bool isLeaveAllowed;
+  final bool isPayrollAllowed;
+  final bool isLoansAllowed;
+  final bool isDocumentsAllowed;
+  final bool isLettersAllowed;
+  final Map<String, bool> appModules;
 
   const Employee({
     required this.id,
@@ -79,8 +85,21 @@ class Employee {
     this.pfContributionMode = 'shared',
     this.esicContributionMode = 'shared',
     this.permissions = const [],
+    this.isAttendanceAllowed = true,
     this.isLeaveAllowed = true,
+    this.isPayrollAllowed = true,
+    this.isLoansAllowed = true,
+    this.isDocumentsAllowed = true,
+    this.isLettersAllowed = true,
+    this.appModules = const {},
   });
+
+  bool get isAttendanceAllowedEffective => appModules['attendance'] ?? isAttendanceAllowed;
+  bool get isLeaveAllowedEffective => appModules['leave'] ?? isLeaveAllowed;
+  bool get isPayrollAllowedEffective => appModules['payroll'] ?? isPayrollAllowed;
+  bool get isLoansAllowedEffective => appModules['loans'] ?? isLoansAllowed;
+  bool get isDocumentsAllowedEffective => appModules['documents'] ?? isDocumentsAllowed;
+  bool get isLettersAllowedEffective => appModules['letters'] ?? isLettersAllowed;
 
   bool get isAdmin {
     final r = role.toLowerCase();
@@ -145,7 +164,13 @@ class Employee {
     bool? esicApplicable,
     String? pfContributionMode,
     String? esicContributionMode,
+    bool? isAttendanceAllowed,
     bool? isLeaveAllowed,
+    bool? isPayrollAllowed,
+    bool? isLoansAllowed,
+    bool? isDocumentsAllowed,
+    bool? isLettersAllowed,
+    Map<String, bool>? appModules,
   }) {
     return Employee(
       id: id ?? this.id,
@@ -182,7 +207,14 @@ class Employee {
       esicApplicable: esicApplicable ?? this.esicApplicable,
       pfContributionMode: pfContributionMode ?? this.pfContributionMode,
       esicContributionMode: esicContributionMode ?? this.esicContributionMode,
+      permissions: permissions ?? this.permissions,
+      isAttendanceAllowed: isAttendanceAllowed ?? this.isAttendanceAllowed,
       isLeaveAllowed: isLeaveAllowed ?? this.isLeaveAllowed,
+      isPayrollAllowed: isPayrollAllowed ?? this.isPayrollAllowed,
+      isLoansAllowed: isLoansAllowed ?? this.isLoansAllowed,
+      isDocumentsAllowed: isDocumentsAllowed ?? this.isDocumentsAllowed,
+      isLettersAllowed: isLettersAllowed ?? this.isLettersAllowed,
+      appModules: appModules ?? this.appModules,
     );
   }
 
@@ -221,8 +253,21 @@ class Employee {
         'esicApplicable': esicApplicable,
         'pfContributionMode': pfContributionMode,
         'esicContributionMode': esicContributionMode,
+        'permissions': permissions,
+        'isAttendanceAllowed': isAttendanceAllowed,
+        'is_attendance_allowed': isAttendanceAllowed,
         'isLeaveAllowed': isLeaveAllowed,
         'is_leave_allowed': isLeaveAllowed,
+        'isPayrollAllowed': isPayrollAllowed,
+        'is_payroll_allowed': isPayrollAllowed,
+        'isLoansAllowed': isLoansAllowed,
+        'is_loans_allowed': isLoansAllowed,
+        'isDocumentsAllowed': isDocumentsAllowed,
+        'is_documents_allowed': isDocumentsAllowed,
+        'isLettersAllowed': isLettersAllowed,
+        'is_letters_allowed': isLettersAllowed,
+        'appModules': appModules,
+        'app_modules': appModules,
       };
 
   factory Employee.fromJson(Map<String, dynamic> json) => Employee(
@@ -261,7 +306,13 @@ class Employee {
         pfContributionMode: json['pfContributionMode'] as String? ?? 'shared',
         esicContributionMode: json['esicContributionMode'] as String? ?? 'shared',
         permissions: (json['permissions'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        isAttendanceAllowed: json['isAttendanceAllowed'] as bool? ?? json['is_attendance_allowed'] as bool? ?? true,
         isLeaveAllowed: json['isLeaveAllowed'] as bool? ?? json['is_leave_allowed'] as bool? ?? true,
+        isPayrollAllowed: json['isPayrollAllowed'] as bool? ?? json['is_payroll_allowed'] as bool? ?? true,
+        isLoansAllowed: json['isLoansAllowed'] as bool? ?? json['is_loans_allowed'] as bool? ?? true,
+        isDocumentsAllowed: json['isDocumentsAllowed'] as bool? ?? json['is_documents_allowed'] as bool? ?? true,
+        isLettersAllowed: json['isLettersAllowed'] as bool? ?? json['is_letters_allowed'] as bool? ?? true,
+        appModules: _parseModules(json['appModules'] ?? json['app_modules']),
       );
 
   /// Parse employee from the real backend's snake_case response
@@ -307,8 +358,23 @@ class Employee {
       pfContributionMode: json['pf_contribution_mode'] as String? ?? 'shared',
       esicContributionMode: json['esic_contribution_mode'] as String? ?? 'shared',
       permissions: (json['permissions'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      isAttendanceAllowed: _parseBool(json['is_attendance_allowed']) ?? true,
       isLeaveAllowed: _parseBool(json['is_leave_allowed']) ?? true,
+      isPayrollAllowed: _parseBool(json['is_payroll_allowed']) ?? true,
+      isLoansAllowed: _parseBool(json['is_loans_allowed']) ?? true,
+      isDocumentsAllowed: _parseBool(json['is_documents_allowed']) ?? true,
+      isLettersAllowed: _parseBool(json['is_letters_allowed']) ?? true,
+      appModules: _parseModules(json['app_modules'] ?? json['appModules']),
     );
+  }
+
+  /// Safely parse a Map of module permissions from JSON
+  static Map<String, bool> _parseModules(dynamic value) {
+    if (value == null) return const {};
+    if (value is Map) {
+      return value.map((k, v) => MapEntry(k.toString(), _parseBool(v) ?? true));
+    }
+    return const {};
   }
 
   /// Safely parse a numeric value that may arrive as a num (int/double)
